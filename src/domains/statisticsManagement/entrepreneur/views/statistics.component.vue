@@ -1,72 +1,181 @@
 <script>
-import { onMounted, ref } from 'vue';
-import axios from 'axios';
 import PublicationCard from '@/domains/statisticsManagement/entrepreneur/components/publication-card.component.vue';
-import { Publication } from '@/domains/statisticsManagement/entrepreneur/models/Publication.entity.js';
-import { EntrepreneurProfile } from '@/domains/statisticsManagement/entrepreneur/models/Publication.entity.js';
+import { EntrepreneurStadisticsApiService } from '@/domains/statisticsManagement/entrepreneur/services/Entrepreneur-Stadistics-api.service.js';
+import { AuthenticationService } from '@/domains/IAM/services/authentication.service.js';
+import Cookies from 'js-cookie';
+import ActivityList from "@/domains/postManagement/entrepreneur/components/activity-list.component.vue";
 
 export default {
-  name: "statistics.component",
-}
+  name: "EntrepreneurStatistics",
+  components: {
+    ActivityList,
+    PublicationCard
+  },
+  data() {
+    return {
+      publications: [],
+      entrepreneurId: null,
+      loading: false,
+      error: null
+    }
+  },
+  created() {
+    this.fetchUserInfo();
+  },
+  methods: {
+    async fetchUserInfo() {
+      try {
+        this.loading = true;
+        const authService = new AuthenticationService();
 
-const publications = ref([])
+        // Get userId from cookies or localStorage
+        const userId = localStorage.getItem("userId") || Cookies.get("userId");
 
-const fetchPublications = async () => {
-  try {
-    // 1. Obtener perfil para conseguir el ID
-    const profileResponse = await axios.get('/api/v1/profiles/entrepreneur');
-    const profile = new EntrepreneurProfile(profileResponse.data[0]);
+        if (!userId) {
+          this.error = 'No se encontró información de usuario. Por favor inicie sesión nuevamente.';
+          this.loading = false;
+          return;
+        }
 
-    // 2. Obtener publicaciones por rating
-    const pubResponse = await axios.get(`/api/v1/publication/order-by-rating/${profile.id}`);
-    publications.value = pubResponse.data.map(pub => new Publication(pub));
-  } catch (error) {
-    console.error('Error al obtener publicaciones:', error);
+        const response = await authService.getUserById(userId);
+
+        if (!response || !response.data || !response.data.id) {
+          this.error = 'No se pudo obtener la información del usuario.';
+          this.loading = false;
+          return;
+        }
+
+        this.entrepreneurId = response.data.id;
+        this.fetchPublications();
+      } catch (err) {
+        this.error = `Error al cargar información de usuario: ${err.message}`;
+        console.error("Error loading user info:", err);
+        this.loading = false;
+      }
+    },
+
+    async fetchPublications() {
+      try {
+        if (!this.entrepreneurId) {
+          console.error("Cannot fetch publications without entrepreneur ID");
+          return;
+        }
+
+        this.loading = true;
+        const entrepreneurStadisticsApiService = new EntrepreneurStadisticsApiService();
+        const response = await entrepreneurStadisticsApiService.getAllActivitiesOrderByRatingByEntrepreneurId(this.entrepreneurId);
+
+
+        if (response && response.data && Array.isArray(response.data)) {
+          this.publications = response.data;
+        } else if (response && response.data && !Array.isArray(response.data)) {
+          this.publications = [response.data];
+        } else if (response && Array.isArray(response)) {
+          this.publications = response;
+        } else {
+          this.publications = [];
+        }
+      } catch (err) {
+        this.error = `Error al cargar publicaciones: ${err.message}`;
+        console.error("Error fetching publications:", err);
+      } finally {
+        this.loading = false;
+      }
+    }
   }
 }
-onMounted(() => {
-  fetchPublications();
-});
-
 </script>
 
 <template>
-  <div class="statistics-view">
-    <h2>Estadísticas</h2>
-    <div class="filter">
-      <button>Mis publicaciones ⌄</button>
+  <div class="home-container">
+    <div class="hero-section">
+      <h1 class="page-title">Estadisticas</h1>
+      <p class="subtitle">Visualiza tus actividades mejor puntuadas</p>
     </div>
-    <div class="card-grid">
-      <PublicationCard
-          v-for="publication in publications"
-          :key="publication.id"
-          :publication="publication"
-      />
+
+    <div v-if="error" class="error-message">
+      <i class="fas fa-exclamation-circle"></i>
+      {{ error }}
     </div>
+
+    <PublicationCard
+        :publications="publications"
+        :loading="loading"
+    />
+
   </div>
 </template>
 
 <style scoped>
-.statistics-view {
-  padding: 2rem;
-  background-color: #fff;
-  min-height: 100vh;
+.home-container {
+  padding: 30px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-h2 {
+.hero-section {
   text-align: center;
-  color: #a57c52;
-  margin-bottom: 1.5rem;
+  margin-bottom: 40px;
+  padding: 40px 20px;
+  background-color: var(--primary-lighter);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
 }
 
-.filter {
-  text-align: right;
-  margin-bottom: 1rem;
+.page-title {
+  color: var(--primary-color);
+  margin-bottom: 10px;
+  font-size: 32px;
+  font-weight: 700;
 }
 
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
+.subtitle {
+  color: var(--text-light);
+  font-size: 18px;
+}
+
+.actions {
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.2s;
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: var(--white);
+  border: none;
+  padding: 12px 24px;
+  border-radius: 50px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-light);
+  box-shadow: 0 4px 12px rgba(118, 85, 50, 0.3);
+}
+
+.error-message {
+  padding: 20px;
+  background-color: #fff0f0;
+  border-left: 4px solid var(--error-color);
+  border-radius: 8px;
+  color: var(--error-color);
+  margin-bottom: 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 </style>

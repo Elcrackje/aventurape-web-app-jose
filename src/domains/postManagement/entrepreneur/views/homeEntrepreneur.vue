@@ -175,6 +175,7 @@ export default {
       </button>
     </div>
 
+    <!------ Activity List  lo q necesito-->
     <ActivityList
         :publications="publications"
         :loading="loading"
