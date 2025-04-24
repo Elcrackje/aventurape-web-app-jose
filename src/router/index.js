@@ -1,13 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { AuthenticationService } from '@/domains/IAM/services/authentication.service.js';
 import Cookies from 'js-cookie';
-import adventurerRoutes from "@/router/adventurerRoutes.js";
+import adventurerRoutes from './adventurerRoutes.js';
+import HomeAdventurer from '@/domains/postManagement/adventurer/views/home-adventurer.component.vue';
 import entrepreneurRoutes from "@/router/entrepreneurRoutes.js";
 
 const routes = [
   {
     path: '/',
     name: 'home',
+    component: HomeAdventurer,
     meta: { requiresAuth: true }
   },
   {
@@ -30,7 +32,7 @@ const routes = [
   {
     path: '/adventurous-home',
     name: 'adventurous-home',
-    component: () => import('@/domains/postManagement/adventurer/views/homeAdventurer.vue'),
+    component: HomeAdventurer,
     meta: { requiresAuth: true, requiredRoles: ['ROLE_ADVENTUROUS'] }
   },
   {
@@ -41,6 +43,8 @@ const routes = [
   },
   ...adventurerRoutes,
   ...entrepreneurRoutes
+
+
 ];
 
 const router = createRouter({

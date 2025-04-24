@@ -1,0 +1,450 @@
+<script>
+import { ActivityApiService } from '@/domains/postManagement/shared/services/activity-api.service.js';
+import ActivityCard from '../components/activity-card.component.vue';
+import EntrepreneurCard from '../components/entrepreneur-card.component.vue';
+import Carousel from 'primevue/carousel';
+import TabMenu from 'primevue/tabmenu';
+
+export default {
+  name: "HomeAdventurer",
+  components: {
+    ActivityCard,
+    EntrepreneurCard,
+    Carousel,
+    TabMenu
+  },
+  data() {
+    return {
+      loading: false,
+      activities: [],
+      activeTab: 0,
+      tabs: [
+        { label: 'Aventuras', icon: 'pi pi-compass' },
+        { label: 'Emprendedores', icon: 'pi pi-users' }
+      ],
+      entrepreneurs: [], // Aquí irían los emprendedores cuando se implementen
+      activityApiService: new ActivityApiService()
+    };
+  },
+
+  computed: {
+    carouselItems() {
+      // Si no hay actividades, devolver array vacío
+      if (!this.activities || this.activities.length === 0) {
+        return [];
+      }
+
+      // Máximo 5 actividades para el carrusel
+      return this.activities.slice(0, 5).map(activity => ({
+        id: activity.id,
+        title: activity.title,
+        description: activity.description.substring(0, 120) + (activity.description.length > 120 ? '...' : ''),
+        image: activity.image
+      }));
+    }
+  },
+  methods: {
+    changeTab(index) {
+      this.activeTab = index;
+    },
+    goToActivity(id) {
+      this.$router.push({
+        name: 'activity-detail',
+        params: { id }
+      });
+    },
+
+    async fetchActivities() {
+      this.loading = true;
+      try {
+        const response = await this.activityApiService.getAllActivities();
+
+        // Mapear los datos del backend al formato esperado por el componente ActivityCard
+        this.activities = response.data.map(item => ({
+          id: item.Id,
+          title: item.nameActivity,
+          description: item.description,
+          people: item.cantPeople,
+          image: item.image || 'https://primefaces.org/cdn/primevue/images/usercard.png',
+          price: item.cost,
+          timeDuration: item.timeDuration,
+          entrepreneurId: item.entrepreneurId
+        }));
+
+        this.loading = false;
+      } catch (error) {
+        console.error('Error al cargar actividades:', error);
+        this.loading = false;
+      }
+    }  },
+  mounted() {
+    this.fetchActivities();
+  }
+};
+</script>
+
+<template>
+  <div class="home-container">
+    <!-- Header con título -->
+    <header class="home-header">
+      <h1>Descubre tu próxima aventura</h1>
+      <p>Explora actividades emocionantes y conoce a emprendedores locales</p>
+    </header>
+
+    <!-- Carrusel de imágenes autoplay -->
+    <div class="gallery-section">
+      <!-- Estado de carga -->
+      <div v-if="loading" class="carousel-loading">
+        <i class="pi pi-spin pi-spinner"></i>
+        <p>Cargando actividades destacadas...</p>
+      </div>
+      <!-- Sin actividades -->
+      <div v-else-if="carouselItems.length === 0" class="carousel-empty">
+        <i class="pi pi-info-circle"></i>
+        <p>No hay actividades destacadas disponibles</p>
+      </div>
+
+      <!-- Carrusel con actividades -->
+      <Carousel
+          v-else
+          :value="carouselItems"
+          :numVisible="1"
+          :numScroll="1"
+          :autoplayInterval="4000"
+          :circular="true"
+          :autoplay="true"
+          class="custom-carousel">
+        <template #item="slotProps">
+          <div class="carousel-item">
+            <img :src="slotProps.data.image" :alt="slotProps.data.title" />
+            <div class="carousel-caption">
+              <h3>{{ slotProps.data.title }}</h3>
+            </div>
+          </div>
+        </template>
+      </Carousel>
+
+    </div>
+    <!-- Navegación por pestañas -->
+    <div class="navigation-tabs">
+      <TabMenu :model="tabs" v-model:activeIndex="activeTab"/>
+    </div>
+
+    <!-- Contenido principal -->
+    <main class="main-content">
+      <!-- Panel de Aventuras -->
+      <div v-if="activeTab === 0" class="tab-content activities-panel">
+        <h2>Aventuras disponibles</h2>
+
+        <!-- Estado de carga -->
+        <div v-if="loading" class="loading-state">
+          <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
+          <p>Cargando actividades...</p>
+        </div>
+
+        <!-- Sin resultados -->
+        <div v-else-if="activities.length === 0" class="empty-state">
+          <i class="pi pi-info-circle"></i>
+          <p>No hay actividades disponibles en este momento</p>
+        </div>
+
+        <!-- Lista de actividades -->
+        <div v-else class="activities-grid">
+          <div v-for="activity in activities" :key="activity.id" class="activity-card-wrapper">
+            <ActivityCard
+                :id="activity.id"
+                :title="activity.title"
+                :image="activity.image"
+                :people="activity.people"
+                :description="activity.description"
+                :price="activity.price"
+                :timeDuration="activity.timeDuration"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel de Emprendedores -->
+      <div v-if="activeTab === 1" class="tab-content entrepreneurs-panel">
+        <h2>Emprendedores destacados</h2>
+        <div class="entrepreneurs-grid">
+          <div v-for="entrepreneur in entrepreneurs" :key="entrepreneur.id" class="entrepreneur-card-wrapper">
+            <EntrepreneurCard
+                :name="entrepreneur.name"
+                :avatar="entrepreneur.avatar"
+            />
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</template>
+
+<style scoped>
+/* Estilos para carrusel mejorado */
+.carousel-item {
+  position: relative;
+  height: 400px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.carousel-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.8s ease;
+}
+
+.carousel-item:hover img {
+  transform: scale(1.05);
+}
+
+.carousel-caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0.8));
+  color: white;
+  padding: 30px 20px 20px;
+  text-align: left;
+}
+
+.carousel-caption h3 {
+  font-size: 1.6rem;
+  margin-bottom: 10px;
+  font-weight: 600;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.6);
+}
+
+.carousel-caption p {
+  margin-bottom: 15px;
+  font-size: 1rem;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
+  max-width: 80%;
+}
+
+.explore-btn {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.explore-btn:hover {
+  background-color: var(--primary-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.25);
+}
+
+.carousel-loading, .carousel-empty {
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--primary-lighter);
+  border-radius: 8px;
+  color: var(--text-light);
+}
+
+.carousel-loading i, .carousel-empty i {
+  font-size: 2rem;
+  margin-bottom: 15px;
+  color: var(--primary-color);
+}
+
+/* Estilos para los controles del carrusel */
+:deep(.p-carousel .p-carousel-indicators .p-carousel-indicator.p-highlight button) {
+  background-color: var(--primary-color);
+}
+
+:deep(.p-carousel .p-carousel-indicators .p-carousel-indicator button) {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+:deep(.p-carousel .p-carousel-content .p-carousel-prev,
+.p-carousel .p-carousel-content .p-carousel-next) {
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  color: var(--primary-color);
+  margin: 0 10px;
+  transition: all 0.2s ease;
+}
+
+:deep(.p-carousel .p-carousel-content .p-carousel-prev:hover,
+.p-carousel .p-carousel-content .p-carousel-next:hover) {
+  background-color: white;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+}
+.home-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.home-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.home-header h1 {
+  color: #3a7539;
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+
+.home-header p {
+  color: #666;
+  font-size: 18px;
+}
+
+/* Estilos para el carrusel de imágenes */
+.gallery-section {
+  margin-bottom: 30px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.gallery-item {
+  width: 100%;
+  height: 300px;
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Estilos para pestañas de navegación */
+.navigation-tabs {
+  margin-bottom: 30px;
+}
+
+:deep(.p-tabmenu .p-tabmenu-nav) {
+  border: none;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 5px;
+}
+
+:deep(.p-tabmenu .p-tabmenu-nav .p-tabmenuitem .p-menuitem-link) {
+  border-radius: 6px;
+  margin: 0 5px;
+  padding: 12px 20px;
+  font-weight: 500;
+}
+
+:deep(.p-tabmenu .p-tabmenu-nav .p-tabmenuitem.p-highlight .p-menuitem-link) {
+  background-color: #3a7539;
+  color: #fff;
+}
+
+:deep(.p-tabmenu .p-tabmenu-nav .p-tabmenuitem:not(.p-highlight):not(.p-disabled):hover .p-menuitem-link) {
+  background-color: #e9ecef;
+  color: #3a7539;
+}
+
+/* Estilos para el contenido principal */
+.main-content {
+  min-height: 400px;
+}
+
+.tab-content {
+  animation: fadeIn 0.4s ease;
+}
+
+.tab-content h2 {
+  color: #3a7539;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+/* Cuadrícula para actividades */
+.activities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 45px;
+}
+
+.activity-card-wrapper {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Cuadrícula para emprendedores */
+.entrepreneurs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 30px;
+}
+
+.entrepreneur-card-wrapper {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Estados de carga y vacío */
+.loading-state, .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #666;
+}
+
+.loading-state i, .empty-state i {
+  font-size: 2rem;
+  margin-bottom: 12px;
+  color: #3a7539;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Estilos responsivos */
+@media (max-width: 768px) {
+  .home-header h1 {
+    font-size: 28px;
+  }
+
+  .activities-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 25px;
+  }
+
+  .entrepreneurs-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .activities-grid, .entrepreneurs-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
