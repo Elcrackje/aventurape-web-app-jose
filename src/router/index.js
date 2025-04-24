@@ -4,6 +4,7 @@ import Cookies from 'js-cookie';
 import adventurerRoutes from './adventurerRoutes.js';
 import HomeAdventurer from '@/domains/postManagement/adventurer/views/home-adventurer.component.vue';
 import entrepreneurRoutes from "@/router/entrepreneurRoutes.js";
+
 const routes = [
   {
     path: '/',
@@ -41,7 +42,8 @@ const routes = [
     meta: { requiresAuth: true, requiredRoles: ['ROLE_ENTREPRENEUR'] }
   },
   ...adventurerRoutes,
-    ...entrepreneurRoutes
+  ...entrepreneurRoutes
+
 
 ];
 
